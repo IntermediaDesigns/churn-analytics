@@ -1,10 +1,79 @@
 import streamlit as st
 import pandas as pd
 import pickle
+import numpy as np
+import xgboost as xgb
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+
 
 def load_model(filename):
     with open(filename, "rb") as file:
-        model = pickle.load(file)
+        return pickle.load(file)
+
+
+xgb_model = load_model("xgb_model.pkl")
+naive_bayes_model = load_model("nb_model.pkl")
+random_forest_model = load_model("rf_model.pkl")
+decision_tree_model = load_model("dt_model.pkl")
+svm_model = load_model("svm_model.pkl")
+knn_model = load_model("knn_model.pkl")
+voting_classifier_model = load_model("voting_clf.pkl")
+xgb_SMOTE_model = load_model("xgb_SMOTE.pkl")
+xgb_featureEngineered_model = load_model("xgb_featureEngineered.pkl")
+
+
+def prepare_input(
+    credit_score,
+    location,
+    gender,
+    age,
+    tenure,
+    balance,
+    num_products,
+    has_credit_card,
+    is_active_member,
+    estimated_salary,
+):
+    input_dict = {
+        "CreditScore": credit_score,
+        "Age": age,
+        "Tenure": tenure,
+        "Balance": balance,
+        "NumOfProducts": num_products,
+        "HasCrCard": int(has_credit_card),
+        "IsActiveMember": int(is_active_member),
+        "EstimatedSalary": estimated_salary,
+        "Geography_France": 1 if location == "France" else 0,
+        "Geography_Germany": 1 if location == "Germany" else 0,
+        "Geography_Spain": 1 if location == "Spain" else 0,
+        "Gender_Male": 1 if gender == "Male" else 0,
+        "Gender_Female": 1 if gender == "Female" else 0,
+    }
+
+    input_df = pd.DataFrame([input_dict])
+    return input_df, input_dict
+
+
+def make_predictions(input_df, input_dict):
+
+    probabilities = {
+        "XGB": xgb_model.predict_proba(input_df)[0][1],
+        "Random Forest": random_forest_model.predict_proba(input_df)[0][1],
+        "KNN": knn_model.predict_proba(input_df)[0][1],
+    }
+
+    avg_prob = np.mean(list(probabilities.values()))
+
+    st.markdown("### Model Probabilities")
+    for model, prob in probabilities.items():
+        st.write(f"{model}: {prob:.2f}")
+    st.write(f"Average Probability: {avg_prob:.2f}")
+
 
 st.title("Churn Analytics")
 

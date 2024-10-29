@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import pickle
+import utils as ut
 
 
 def get_groq_client():
@@ -85,53 +86,6 @@ def test_groq_connection():
         return False
 
 
-# def explain_prediction(probability, input_dict, surname):
-
-#     prompt = f"""You are an expert data scientist at a bank, where you specialise in interpreting and explaining the predictions of machine learning models.
-
-#     your machine learning model has predicted that a customer named {surname} has a {round(probability*100, 1)}% probability of churning, based on the information provided below.
-#         Here is the customer's information:
-#         {input_dict}
-
-#         Here are the machine learning model's top most important features for predicting churn:
-
-#         Feature | Importance
-#         ______________________
-#         NumOfProducts | 0.323888
-#         IsActiveMember | 0.164146
-#         Age | 0.109550
-#         Geography_Germany | 0.091373
-#         Balance | 0.052786
-#         Geography_France | 0.046463
-#         Gender_Female | 0.045283
-#         Geography_Spain | 0.036855
-#         CreditScore | 0.035005
-#         EstimatedSalary | 0.032655
-#         HasCrCard | 0.031940
-#         Tenure | 0.030054
-#         Gender_Male | 0.000000
-
-#     {pd.set_option('display.max_columns', None)}
-
-#     Here are summary statistics for the churned customers:
-#     {df[df['Exited'] == 1].describe()}
-
-# - If the customer has over a 40% risk of churning, generate a 3 sentence explanation of why they are at risk of churning.
-# - If the customer has less than a 40% risk of churning, generate a 3 sentence explanation of why they might not be at risk of churning.
-# - Your explanation should be based on the customer's information, the summary statistics of churned and non-churned customers, and the feature importances provided.
-
-#     Don't mention the probablity of churning, or the machine learning model, or say anything like "Based on the machine learning model's prediction..." or "The model predicts that...". Instead, write as if you are an expert data scientist at a bank, and you are explaining the prediction to a non-technical audience.
-#     """
-
-#     print("Explanation Prompt: ", prompt)
-
-
-#     raw_response = client.chat.completions.create(
-#         model="llama-3.2-3b-preview",
-#         messages=[{"role": "user", "content": prompt}],
-#     )
-#     return raw_response.choices[0].message.content
-# Update the explain_prediction function to use the new client
 def explain_prediction(probability, input_dict, surname, df):
     # Format the input data more readably
     formatted_data = "\n".join([f"- {k}: {v}" for k, v in input_dict.items()])
@@ -176,6 +130,100 @@ Style Guide:
     system_message = "You are a senior banking data scientist who explains customer retention patterns clearly and concisely."
 
     return send_groq_chat_completion(prompt, system_message)
+
+
+def generate_email(probability, input_dict, explanation, surname):
+    """
+    Generate a personalized retention email for a customer using Groq's LLM.
+
+    Args:
+        probability (float): Churn probability
+        input_dict (dict): Customer information
+        explanation (str): Previous analysis of customer's situation
+        surname (str): Customer's surname
+    """
+    # Format customer information more readably
+    customer_info = "\n".join([f"- {k}: {v}" for k, v in input_dict.items()])
+
+    prompt = f"""You are a thoughtful bank relationship manager writing a personalized email to a valued customer.
+
+Customer Details:
+Name: {surname}
+{customer_info}
+
+Previous Analysis:
+{explanation}
+
+Task:
+Write a professional email to this customer that:
+1. Opens with a warm, personalized greeting
+2. Acknowledges their relationship with the bank
+3. Offers specific, relevant incentives based on their profile
+4. Closes with a clear call to action
+
+Required Elements:
+- Subject line
+- Professional email body
+- 3-4 bullet points of personalized offers/incentives
+- Clear next steps
+- Professional signature
+
+Style Guidelines:
+- Warm and professional tone
+- No mention of churn risk or technical analysis
+- Focus on value and appreciation
+- Specific to their profile and usage patterns
+- Keep incentives realistic and relevant to their profile
+
+Format the email with clear sections and proper spacing."""
+
+    system_message = """You are an experienced bank relationship manager who excels at personalizing communication and building customer loyalty."""
+
+    try:
+        email_content = send_groq_chat_completion(prompt, system_message)
+        return email_content
+
+    except Exception as e:
+        st.error(f"Error generating email: {str(e)}")
+        return "Unable to generate email at this time."
+
+
+def update_predictions_and_explanation(input_df, input_dict, surname):
+    probabilities = {
+        "XGB": xgb_model.predict_proba(input_df)[0][1],
+        "Random Forest": random_forest_model.predict_proba(input_df)[0][1],
+        "KNN": knn_model.predict_proba(input_df)[0][1],
+    }
+
+    avg_prob = np.mean(list(probabilities.values()))
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig = ut.create_guage_chart(avg_prob)
+        st.plotly_chart(fig, use_container_width=True)
+        st.write(f"The customer has a {avg_prob:.2f} probability of churning.")
+        
+    with col2:
+        fig_probs = ut.create_model_probability_chart(probabilities)
+        st.plotly_chart(fig_probs, use_container_width=True)
+
+    st.markdown("### Model Probabilities")
+    for model, prob in probabilities.items():
+        st.write(f"{model}: {prob:.2f}")
+    st.write(f"Average Probability: {avg_prob:.2f}")
+
+    explanation = explain_prediction(avg_prob, input_dict, surname, df)
+
+    st.markdown("### Analysis")
+    st.write(explanation)
+
+    # Generate and display email
+    email_content = generate_email(avg_prob, input_dict, explanation, surname)
+
+    st.markdown("### Suggested Email")
+    st.write(email_content)
+
+    return avg_prob
 
 
 def load_model(filename):
@@ -224,28 +272,6 @@ def prepare_input(
 
     input_df = pd.DataFrame([input_dict])
     return input_df, input_dict
-
-
-def update_predictions_and_explanation(input_df, input_dict, surname):
-    probabilities = {
-        "XGB": xgb_model.predict_proba(input_df)[0][1],
-        "Random Forest": random_forest_model.predict_proba(input_df)[0][1],
-        "KNN": knn_model.predict_proba(input_df)[0][1],
-    }
-
-    avg_prob = np.mean(list(probabilities.values()))
-
-    st.markdown("### Model Probabilities")
-    for model, prob in probabilities.items():
-        st.write(f"{model}: {prob:.2f}")
-    st.write(f"Average Probability: {avg_prob:.2f}")
-
-    explanation = explain_prediction(avg_prob, input_dict, surname, df)
-
-    st.markdown("### Analysis")
-    st.write(explanation)
-
-    return avg_prob
 
 
 st.title("Churn Analytics")

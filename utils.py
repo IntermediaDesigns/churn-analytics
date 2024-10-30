@@ -6,7 +6,7 @@ def update_chart_styling(fig):
     fig.update_layout(
         paper_bgcolor="#1e2433",
         plot_bgcolor="#1e2433",
-        font=dict(family="Segoe UI, sans-serif", color="#ffffff"),
+        font=dict(family="Segoe UI, sans-serif", color="#ffffff", weight="normal"),
         margin=dict(l=20, r=20, t=50, b=20),
         height=300,
         # Center all titles
@@ -42,7 +42,7 @@ def create_guage_chart(probability):
             domain={"x": [0, 1], "y": [0, 1]},
             title={
                 "text": "Churn Risk",
-                "font": {"size": 20, "color": "#ffffff"},
+                "font": {"size": 24, "color": "#ffffff", "weight": "normal"},
             },
             number={
                 "font": {"size": 40, "color": "#ffffff"},
@@ -76,19 +76,13 @@ def create_guage_chart(probability):
         )
     )
 
-    # Update layout with error handling
+    # Update layout
     fig.update_layout(
         paper_bgcolor="#1e2433",
         plot_bgcolor="#1e2433",
-        font=dict(family="Segoe UI, sans-serif", color="#ffffff"),
+        font=dict(family="Segoe UI, sans-serif", color="#ffffff", weight="normal"),
         margin=dict(l=20, r=20, t=50, b=20),
         height=300,
-        title={
-            "y": 0.95,
-            "x": 0.5,
-            "xanchor": "center",
-            "yanchor": "top",
-        },
     )
 
     return fig
@@ -119,7 +113,7 @@ def create_model_probability_chart(probabilities):
     fig.update_layout(
         title={
             "text": "Model Predictions",
-            "font": {"size": 20, "color": "#ffffff"},
+            "font": {"size": 24, "color": "#ffffff", "weight": "normal"},
         },
         xaxis_title="Probability",
         yaxis_title="Model",
@@ -129,13 +123,13 @@ def create_model_probability_chart(probabilities):
             gridcolor="#3d4554",
             tickcolor="white",
             tickfont={"color": "white"},
-            title_font={"color": "white"},
+            title_font={"color": "white", "weight": "normal"},
         ),
         yaxis=dict(
             gridcolor="#3d4554",
             tickcolor="white",
             tickfont={"color": "white"},
-            title_font={"color": "white"},
+            title_font={"color": "white", "weight": "normal"},
         ),
     )
 

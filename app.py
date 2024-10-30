@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import utils as ut
+import re
 
 
 def setup_page_config():
@@ -30,6 +31,14 @@ def create_card(title, content):
     if (
         content and content.strip()
     ):  # Only create card if content exists and is not just whitespace
+        # Clean the content to ensure valid HTML
+        content = content.replace("<", "<").replace(">", ">")
+        # Restore specific allowed HTML tags
+        content = re.sub(r'<div class="email-signature">', '<div class="email-signature">', content)
+        content = re.sub(r'</div>', '</div>', content)
+        content = re.sub(r'<p class="([^"]*)">', r'<p class="\1">', content)
+        content = re.sub(r'</p>', '</p>', content)
+        
         st.markdown(
             f"""
             <div class="analysis-card">
@@ -182,7 +191,7 @@ Previous Analysis:
 Task:
 Write a professional email that includes:
 
-1. Subject line starting with "Subject: "
+1. Subject line starting with "Subject: " followed by two line breaks
 2. Professional greeting
 3. Main body content that:
    - Acknowledges their relationship with the bank
@@ -209,10 +218,11 @@ Style Guidelines:
 - Focus on value and appreciation
 - Specific to their profile and usage patterns
 - Keep incentives realistic and relevant to their profile
+- Add TWO line breaks after the subject line
 
 Ensure proper spacing between sections and preserve all HTML formatting exactly as shown."""
 
-    system_message = """You are an experienced bank relationship manager who excels at personalizing communication and building customer loyalty."""
+    system_message = """You are an experienced bank relationship manager who excels at personalizing communication and building customer loyalty. Remember to add TWO line breaks after the subject line."""
 
     try:
         email_content = send_groq_chat_completion(prompt, system_message)

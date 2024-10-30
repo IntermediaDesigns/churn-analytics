@@ -9,6 +9,38 @@ import pickle
 import utils as ut
 
 
+def setup_page_config():
+    """Configure the Streamlit page settings and CSS"""
+    st.set_page_config(
+        page_title="Bank Churn Analytics",
+        page_icon="🏦",
+        layout="wide",
+    )
+
+    # Load and apply CSS
+    with open("styles.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+setup_page_config()
+
+
+def create_card(title, content):
+    """Create a styled card component"""
+    if (
+        content and content.strip()
+    ):  # Only create card if content exists and is not just whitespace
+        st.markdown(
+            f"""
+            <div class="analysis-card">
+                <h4 style="color: #ffffff; margin-bottom: 1rem;">{title}</h4>
+                <div style="color: #ffffff;">{content}</div>
+            </div>
+        """,
+            unsafe_allow_html=True,
+        )
+
+
 def get_groq_client():
     """
     Initialize and return the Groq client using credentials from .env file.
@@ -41,7 +73,7 @@ def send_groq_chat_completion(prompt, system_message=None):
     try:
         client = get_groq_client()
         if not client:
-            return "Unable to generate explanation due to client connection error."
+            return None
 
         messages = []
         if system_message:
@@ -53,14 +85,14 @@ def send_groq_chat_completion(prompt, system_message=None):
             model="mixtral-8x7b-32768",
             messages=messages,
             temperature=0.7,
-            max_tokens=300,
+            max_tokens=500,
         )
 
         return response.choices[0].message.content
 
     except Exception as e:
         st.error(f"Error generating explanation: {str(e)}")
-        return "Unable to generate explanation at this time."
+        return None
 
 
 # Example function to test the connection
@@ -134,15 +166,8 @@ Style Guide:
 
 def generate_email(probability, input_dict, explanation, surname):
     """
-    Generate a personalized retention email for a customer using Groq's LLM.
-
-    Args:
-        probability (float): Churn probability
-        input_dict (dict): Customer information
-        explanation (str): Previous analysis of customer's situation
-        surname (str): Customer's surname
+    Generate a personalized retention email with professional signature block.
     """
-    # Format customer information more readably
     customer_info = "\n".join([f"- {k}: {v}" for k, v in input_dict.items()])
 
     prompt = f"""You are a thoughtful bank relationship manager writing a personalized email to a valued customer.
@@ -155,18 +180,28 @@ Previous Analysis:
 {explanation}
 
 Task:
-Write a professional email to this customer that:
-1. Opens with a warm, personalized greeting
-2. Acknowledges their relationship with the bank
-3. Offers specific, relevant incentives based on their profile
-4. Closes with a clear call to action
+Write a professional email with the following structure:
 
-Required Elements:
-- Subject line
-- Professional email body
-- 3-4 bullet points of personalized offers/incentives
-- Clear next steps
-- Professional signature
+1. Subject Line (in "Subject: " format)
+2. Professional greeting
+3. Main body content that:
+   - Acknowledges their relationship with the bank
+   - Expresses appreciation for their business
+   - Offers specific, relevant incentives based on their profile
+4. Bullet points of personalized offers/incentives
+5. Clear call to action
+6. Professional closing
+
+End with a signature block in the following exact format:
+
+Best regards,
+
+[Full Name]
+Senior Relationship Manager
+Bank Financial Services
+Direct: (555) 123-4567
+Email: name@thebank.com
+NMLS ID: 12345
 
 Style Guidelines:
 - Warm and professional tone
@@ -175,17 +210,17 @@ Style Guidelines:
 - Specific to their profile and usage patterns
 - Keep incentives realistic and relevant to their profile
 
-Format the email with clear sections and proper spacing."""
+Ensure proper spacing between sections and format exactly as shown."""
 
     system_message = """You are an experienced bank relationship manager who excels at personalizing communication and building customer loyalty."""
 
     try:
         email_content = send_groq_chat_completion(prompt, system_message)
-        return email_content
+        return email_content if email_content else None
 
     except Exception as e:
         st.error(f"Error generating email: {str(e)}")
-        return "Unable to generate email at this time."
+        return None
 
 
 def update_predictions_and_explanation(input_df, input_dict, surname):
@@ -194,34 +229,51 @@ def update_predictions_and_explanation(input_df, input_dict, surname):
         "Random Forest": random_forest_model.predict_proba(input_df)[0][1],
         "KNN": knn_model.predict_proba(input_df)[0][1],
     }
-
     avg_prob = np.mean(list(probabilities.values()))
-    
+
+    # Charts row
     col1, col2 = st.columns(2)
     with col1:
         fig = ut.create_guage_chart(avg_prob)
         st.plotly_chart(fig, use_container_width=True)
-        st.write(f"The customer has a {avg_prob:.2f} probability of churning.")
-        
+
     with col2:
         fig_probs = ut.create_model_probability_chart(probabilities)
         st.plotly_chart(fig_probs, use_container_width=True)
 
-    st.markdown("### Model Probabilities")
-    for model, prob in probabilities.items():
-        st.write(f"{model}: {prob:.2f}")
-    st.write(f"Average Probability: {avg_prob:.2f}")
+    # Metrics row
+    st.markdown(
+        '<h1 class="centered-title">Customer Churn Analysis</h1>',
+        unsafe_allow_html=True,
+    )
+    left_spacer, metrics_container, right_spacer = st.columns([1, 2, 1])
 
+    with metrics_container:
+        metrics_cols = st.columns(4)
+        metrics_cols[0].metric(
+            "Overall Churn Risk",
+            f"{avg_prob:.1%}",
+            help="Average probability across all models",
+        )
+
+    for i, (model, prob) in enumerate(probabilities.items(), 1):
+        metrics_cols[i].metric(
+            model,
+            f"{prob:.1%}",
+            delta=f"{(prob - avg_prob) * 100:+.1f}pp",
+            delta_color="inverse",
+            help=f"Difference from overall: {(prob - avg_prob) * 100:+.1f} percentage points",
+        )
+
+    # Analysis
     explanation = explain_prediction(avg_prob, input_dict, surname, df)
+    if explanation:
+        create_card("Customer Analysis", explanation)
 
-    st.markdown("### Analysis")
-    st.write(explanation)
-
-    # Generate and display email
+    # Email
     email_content = generate_email(avg_prob, input_dict, explanation, surname)
-
-    st.markdown("### Suggested Email")
-    st.write(email_content)
+    if email_content:
+        create_card("📧 Suggested Email", email_content)
 
     return avg_prob
 
@@ -277,7 +329,6 @@ def prepare_input(
 st.title("Churn Analytics")
 
 df = pd.read_csv("churn.csv")
-
 customers = [f"{row['CustomerId']} - {row['Surname']}" for _, row in df.iterrows()]
 
 selected_customer_option = st.selectbox("Select a customer", customers)
@@ -291,7 +342,7 @@ if selected_customer_option:
 
     col1, col2 = st.columns(2)
     with col1:
-
+        st.markdown("### Personal Information")
         credit_score = st.number_input(
             "Credit Score",
             min_value=300,
@@ -324,10 +375,12 @@ if selected_customer_option:
         )
 
     with col2:
+        st.markdown("### Account Information")
         balance = st.number_input(
             "Balance",
             min_value=0.0,
             value=float(selected_customer["Balance"]),
+            format="%.2f",
         )
         num_products = st.number_input(
             "Number of Products",
@@ -347,6 +400,7 @@ if selected_customer_option:
             "Estimated Salary",
             min_value=0.0,
             value=float(selected_customer["EstimatedSalary"]),
+            format="%.2f",
         )
 
     input_df, input_dict = prepare_input(
@@ -361,6 +415,5 @@ if selected_customer_option:
         is_active_member,
         estimated_salary,
     )
-    avg_prob = update_predictions_and_explanation(
-        input_df, input_dict, selected_surname
-    )
+
+    update_predictions_and_explanation(input_df, input_dict, selected_surname)

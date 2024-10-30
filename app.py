@@ -180,9 +180,9 @@ Previous Analysis:
 {explanation}
 
 Task:
-Write a professional email with the following structure:
+Write a professional email that includes:
 
-1. Subject Line (in "Subject: " format)
+1. Subject line starting with "Subject: "
 2. Professional greeting
 3. Main body content that:
    - Acknowledges their relationship with the bank
@@ -192,16 +192,16 @@ Write a professional email with the following structure:
 5. Clear call to action
 6. Professional closing
 
-End with a signature block in the following exact format:
+End with this EXACT signature block format (preserve all HTML tags and classes):
 
-Best regards,
-
-[Full Name]
-Senior Relationship Manager
-Bank Financial Services
-Direct: (555) 123-4567
-Email: name@thebank.com
-NMLS ID: 12345
+<div class="email-signature">
+    <p class="name">[Your Name]</p>
+    <p class="title">Senior Relationship Manager</p>
+    <p class="company">Bank Financial Services</p>
+    <p class="contact-info">Direct: (555) 123-4567</p>
+    <p class="contact-info">Email: youremail@thebank.com</p>
+    <p class="contact-info">NMLS ID: 12345</p>
+</div>
 
 Style Guidelines:
 - Warm and professional tone
@@ -210,7 +210,7 @@ Style Guidelines:
 - Specific to their profile and usage patterns
 - Keep incentives realistic and relevant to their profile
 
-Ensure proper spacing between sections and format exactly as shown."""
+Ensure proper spacing between sections and preserve all HTML formatting exactly as shown."""
 
     system_message = """You are an experienced bank relationship manager who excels at personalizing communication and building customer loyalty."""
 
